@@ -314,6 +314,241 @@ class LFU
 }; // End class LFU
 
 
+// ************************
+// LIP (LRU Insertion Policy) Replacement Policy
+// ************************
+class LIP
+{
+  protected:
+    std::vector<CACHE_TAG> _tags; // Αποθηκεύει τα tags. front()=LRU, back()=MRU
+    UINT32 _associativity;        // Η συσχετιστικότητα του set
+
+  public:
+    // Constructor
+    LIP(UINT32 associativity = 8) : _associativity(associativity)
+    {
+        // Προαιρετική δέσμευση χώρου στο vector για αποδοτικότητα
+        if (_associativity > 0) {
+            _tags.reserve(associativity);
+        }
+    }
+
+    // Ορισμός συσχετιστικότητας και καθαρισμός των tags
+    VOID SetAssociativity(UINT32 associativity)
+    {
+        _associativity = associativity;
+        _tags.clear();
+        if (_associativity > 0) {
+            _tags.reserve(associativity);
+        }
+    }
+
+    // Επιστροφή συσχετιστικότητας
+    UINT32 GetAssociativity() const { return _associativity; }
+
+    // Επιστροφή ονόματος πολιτικής
+    std::string Name() const { return "LIP"; }
+
+    // Εύρεση ενός tag στο set.
+    // Επιστρέφει true αν βρεθεί (hit), false αλλιώς (miss).
+    // **Σε περίπτωση hit, προωθεί το tag στη θέση MRU (όπως η LRU).**
+    bool Find(CACHE_TAG tag)
+    {
+        for (auto it = _tags.begin(); it != _tags.end(); ++it) {
+            if (*it == tag) { // Το tag βρέθηκε (Hit)
+                _tags.erase(it);           // Αφαιρούμε το tag από την τρέχουσα θέση του
+                _tags.push_back(tag);// Το προσθέτουμε στο τέλος (το κάνουμε MRU)
+                return true;
+            }
+        }
+        return false; // Το tag δεν βρέθηκε (Miss)
+    }
+
+    // Αντικατάσταση ενός block στο set ακολουθώντας την πολιτική LIP.
+    // Επιστρέφει το tag που αφαιρέθηκε, ή INVALID_TAG αν δεν έγινε αφαίρεση.
+    // **Σημαντική διαφορά από LRU: Εισάγει το νέο tag στη θέση LRU.**
+    CACHE_TAG Replace(CACHE_TAG tag)
+    {
+        CACHE_TAG evicted_tag = INVALID_TAG;
+
+        // Έλεγχος αν το set είναι γεμάτο (και η associativity > 0)
+        if (_tags.size() >= _associativity && _associativity > 0) {
+            // Το set είναι γεμάτο. Πρέπει να αφαιρέσουμε το LRU block (αυτό που είναι στην αρχή).
+            evicted_tag = _tags.front(); // Παίρνουμε το tag του LRU
+            _tags.erase(_tags.begin());  // Αφαιρούμε το LRU στοιχείο
+        }
+        // Αν associativity == 0, δεν κάνουμε τίποτα εδώ.
+
+        // Εισάγουμε το νέο tag στην αρχή του vector (στη θέση LRU).
+        // Αυτό γίνεται είτε το set ήταν γεμάτο (και μόλις αδειάσαμε μια θέση) είτε όχι.
+        if (_associativity > 0) { // Εισάγουμε μόνο αν η cache μπορεί να κρατήσει στοιχεία
+            _tags.insert(_tags.begin(), tag);
+        }
+
+        // Επιστρέφουμε το tag που (πιθανώς) αφαιρέθηκε
+        return evicted_tag;
+    }
+
+    // Διαγραφή ενός συγκεκριμένου tag αν υπάρχει στο set (ίδιο με την LRU)
+    VOID DeleteIfPresent(CACHE_TAG tag)
+    {
+        for (auto it = _tags.begin(); it != _tags.end(); ++it) {
+            if (*it == tag) { // Βρέθηκε το tag
+                _tags.erase(it); // Το αφαιρούμε
+                break;           // Υποθέτουμε μοναδικότητα των tags
+            }
+        }
+    }
+}; // End class LIP
+
+// ************************
+// SRRIP (Static Re-reference Interval Prediction) Replacement Policy
+// ************************
+class SRRIP
+{
+  protected:
+    // Δομή για την αποθήκευση του tag και της τιμής RRPV
+    struct CacheEntry {
+        CACHE_TAG tag;  // Το tag της γραμμής
+        UINT64 rrpv;    // Re-Reference Prediction Value (χρησιμοποιούμε UINT64 για ασφάλεια αν n είναι μεγάλο)
+
+        // Constructor
+        CacheEntry(CACHE_TAG t, UINT64 r) : tag(t), rrpv(r) {}
+    };
+
+    std::vector<CacheEntry> _entries; // Αποθηκεύει τα entries (tag + RRPV)
+    UINT32 _associativity;            // Η συσχετιστικότητα (n)
+    UINT64 _rmax;                     // Η μέγιστη τιμή RRPV (Rmax = 2^n - 1)
+
+    // Βοηθητική συνάρτηση για τον υπολογισμό του Rmax = 2^n - 1
+    // Χρησιμοποιεί bit shift (1ULL << n) που είναι πιο ασφαλές/αποδοτικό από pow() για ακέραιες δυνάμεις του 2.
+    static UINT64 calculate_rmax(UINT32 associativity) {
+        if (associativity == 0) return 0;
+        // Προσοχή σε πολύ μεγάλες τιμές associativity (αν n >= 64, το shift θα υπερχειλίσει το UINT64)
+        if (associativity >= 64) {
+            // Σε αυτή την απίθανη περίπτωση, επιστρέφουμε τη μέγιστη τιμή UINT64
+            return std::numeric_limits<UINT64>::max();
+        }
+        // Υπολογισμός 2^n - 1 χρησιμοποιώντας bit shift
+        return (1ULL << associativity) - 1;
+    }
+
+  public:
+    // Constructor
+    SRRIP(UINT32 associativity = 8) : _associativity(associativity)
+    {
+        _rmax = calculate_rmax(_associativity);
+        // Προαιρετική δέσμευση χώρου
+        if (_associativity > 0) {
+             _entries.reserve(associativity);
+        }
+    }
+
+    // Ορισμός συσχετιστικότητας, υπολογισμός Rmax και καθαρισμός
+    VOID SetAssociativity(UINT32 associativity)
+    {
+        _associativity = associativity;
+        _rmax = calculate_rmax(_associativity); // Επαναϋπολογισμός Rmax
+        _entries.clear();
+        if (_associativity > 0) {
+             _entries.reserve(associativity);
+        }
+    }
+
+    // Επιστροφή συσχετιστικότητας
+    UINT32 GetAssociativity() const { return _associativity; }
+
+    // Επιστροφή ονόματος πολιτικής
+    std::string Name() const { return "SRRIP"; }
+
+    // Εύρεση ενός tag στο set.
+    // Επιστρέφει true αν βρεθεί (hit), false αλλιώς (miss).
+    // **Σε περίπτωση hit, θέτει το RRPV του tag σε 0.**
+    bool Find(CACHE_TAG tag)
+    {
+        // Διατρέχουμε με αναφορά (&) για να αλλάξουμε το rrpv
+        for (auto& entry : _entries) {
+            if (entry.tag == tag) {
+                entry.rrpv = 0; // Θέτουμε RRPV=0 στο hit
+                return true;    // Το tag βρέθηκε
+            }
+        }
+        return false; // Το tag δεν βρέθηκε
+    }
+
+    // Αντικατάσταση ενός block στο set ακολουθώντας την πολιτική SRRIP.
+    // Επιστρέφει το tag που αφαιρέθηκε, ή INVALID_TAG αν δεν έγινε αφαίρεση.
+    CACHE_TAG Replace(CACHE_TAG tag)
+    {
+        CACHE_TAG evicted_tag = INVALID_TAG;
+        // Αρχική τιμή RRPV για νέα blocks (Rmax-1, ή 0 αν Rmax=0)
+        UINT64 initial_rrpv = (_rmax > 0) ? (_rmax - 1) : 0;
+
+        // Έλεγχος αν το set είναι γεμάτο
+        if (_entries.size() < _associativity) {
+            // Το set δεν είναι γεμάτο, απλά προσθέτουμε το νέο entry με RRPV = Rmax-1.
+            _entries.emplace_back(tag, initial_rrpv);
+        }
+        // Έλεγχος αν το set είναι γεμάτο (και η associativity > 0)
+        else if (_associativity > 0) {
+            // Το set είναι γεμάτο. Πρέπει να βρούμε θύμα με RRPV == Rmax.
+
+            UINT32 victim_index = 0;    // Ο δείκτης του θύματος
+            bool victim_found = false;  // Flag για να ξέρουμε αν βρήκαμε θύμα
+
+            // Βρόχος αναζήτησης θύματος: συνεχίζει μέχρι να βρεθεί ένα με RRPV == Rmax
+            while (!victim_found) {
+                 // Πρώτη προσπάθεια: βρες ένα entry με RRPV == Rmax
+                 for (UINT32 i = 0; i < _entries.size(); ++i) {
+                     if (_entries[i].rrpv == _rmax) {
+                         victim_index = i;   // Βρήκαμε θύμα
+                         victim_found = true;
+                         break; // Έξοδος από τον εσωτερικό βρόχο for
+                     }
+                 }
+
+                 // Αν βρήκαμε θύμα σε αυτή την επανάληψη, βγαίνουμε και από τον εξωτερικό βρόχο while
+                 if (victim_found) {
+                     break;
+                 }
+
+                 // Αν *δεν* βρέθηκε θύμα με RRPV == Rmax σε αυτή την επανάληψη,
+                 // αυξάνουμε *όλα* τα RRPV κατά 1 και ξαναψάχνουμε στον επόμενο κύκλο του while.
+                 for (auto& entry : _entries) {
+                     // Αυξάνουμε το RRPV. Η λογική του βρόχου while διασφαλίζει ότι
+                     // δεν θα μείνουμε εδώ για πάντα και ότι τελικά κάποιο θα φτάσει Rmax.
+                     // Δεν χρειάζεται έλεγχος υπερχείλισης εδώ γιατί ο βρόχος θα τερματίσει.
+                     entry.rrpv++;
+                 }
+            } // Τέλος βρόχου while (!victim_found)
+
+            // Έχουμε βρει το θύμα στον δείκτη victim_index
+            // Αποθηκεύουμε το tag του θύματος
+            evicted_tag = _entries[victim_index].tag;
+
+            // Αντικαθιστούμε το θύμα με το νέο tag και αρχικοποιούμε το RRPV του νέου tag
+            _entries[victim_index].tag = tag;
+            _entries[victim_index].rrpv = initial_rrpv; // RRPV = Rmax - 1 για το νέο tag
+        }
+        // Αν associativity == 0, δεν κάνουμε τίποτα.
+
+        // Επιστρέφουμε το tag που (πιθανώς) αφαιρέθηκε
+        return evicted_tag;
+    }
+
+    // Διαγραφή ενός συγκεκριμένου tag αν υπάρχει στο set (π.χ., για την L2 inclusivity)
+    VOID DeleteIfPresent(CACHE_TAG tag)
+    {
+        for (auto it = _entries.begin(); it != _entries.end(); ++it) {
+            if (it->tag == tag) { // Βρέθηκε το tag
+                _entries.erase(it); // Αφαιρούμε το στοιχείο CacheEntry
+                break;              // Υποθέτουμε μοναδικότητα των tags
+            }
+        }
+    }
+}; // End class SRRIP
+
+
 } // namespace CACHE_SET
 
 template <class SET>
