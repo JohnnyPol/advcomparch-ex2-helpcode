@@ -42,7 +42,9 @@ KNOB<UINT32> KnobL2Associativity(KNOB_MODE_WRITEONCE, "pintool",
 /* Global Variables                                                      */
 /* ===================================================================== */
 
-typedef TWO_LEVEL_CACHE<CACHE_SET::LRU> CACHE_T; // This is where the replacement policy is chosen
+// typedef TWO_LEVEL_CACHE<CACHE_SET::LRU> CACHE_T; // This is where the replacement policy is chosen
+
+typedef TWO_LEVEL_CACHE<CACHE_SET::Random> CACHE_T;
 CACHE_T *two_level_cache;
 
 UINT64 total_cycles, total_instructions;
@@ -140,6 +142,8 @@ VOID roi_begin()
 int main(int argc, char *argv[])
 {
     PIN_InitSymbols();
+    
+    std::srand(21089); // Seed for random number generation
 
     if(PIN_Init(argc,argv))
         return Usage();

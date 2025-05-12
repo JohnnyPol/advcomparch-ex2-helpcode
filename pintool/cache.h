@@ -116,6 +116,204 @@ class LRU
     }
 };
 
+
+// ************************
+// Random Replacement Policy (New implementation)
+// ************************
+class Random
+{
+  protected:
+    std::vector<CACHE_TAG> _tags; // Stores the tags in the set
+    UINT32 _associativity;
+
+  public:
+    // Constructor
+    Random(UINT32 associativity = 8) : _associativity(associativity)
+    {
+        _tags.clear();
+        _tags.reserve(associativity); // Reserve space for associativity
+    }
+
+    // Set associativity and clear existing tags
+    VOID SetAssociativity(UINT32 associativity)
+    {
+        _associativity = associativity;
+        _tags.clear();
+        if (_associativity > 0) {
+            _tags.reserve(associativity);
+        }
+    }
+
+    // Get associativity
+    UINT32 GetAssociativity() const { return _associativity; }
+
+    // Return policy name
+    std::string Name() const { return "Random"; }
+
+    // Find a tag in the set
+    // Returns true if found (hit), false otherwise (miss).
+    // No reordering needed for Random policy on hit.
+    bool Find(CACHE_TAG tag) const // Made const as it doesn't modify state
+    {
+        for (const auto& existing_tag : _tags) {
+            if (existing_tag == tag) {
+                return true; // Tag found (hit)
+            }
+        }
+        return false; // Tag not found (miss)
+    }
+
+    // Replace a block in the set following Random policy.
+    // Returns the evicted tag, or INVALID_TAG if no eviction occurred.
+    CACHE_TAG Replace(CACHE_TAG tag)
+    {
+        CACHE_TAG evicted_tag = INVALID_TAG;
+
+        if (_tags.size() < _associativity) {
+            // Set is not full, just add the new tag
+            _tags.push_back(tag);
+        } else if (_associativity > 0) { // Check associativity > 0 to avoid modulo by zero
+            // Set is full, need to replace a random tag
+            // Generate a random index between 0 and associativity-1
+            UINT32 victim_index = std::rand() % _associativity;
+
+            // Store the tag being evicted
+            evicted_tag = _tags[victim_index];
+
+            // Replace the tag at the victim index with the new tag
+            _tags[victim_index] = tag;
+        }
+        return evicted_tag;
+    }
+
+    // Delete a specific tag if it's present in the set (e.g., for L2 inclusivity)
+    VOID DeleteIfPresent(CACHE_TAG tag)
+    {
+        // Iterate through the vector and erase the element if found
+        for (auto it = _tags.begin(); it != _tags.end(); ++it) {
+            if (*it == tag) { // Tag found
+                _tags.erase(it); // Remove the tag
+                // Assume tags are unique within a set for cache simulation, so we can stop.
+                // If duplicates were possible, we'd continue or use std::remove/erase idiom.
+                break;
+            }
+        }
+    }
+}; // End class Random
+
+
+// ************************
+// LFU (Least Frequently Used) Replacement Policy
+// ************************
+class LFU
+{
+  protected:
+    // Δομή για την αποθήκευση του tag και της συχνότητας πρόσβασής του
+    struct CacheEntry {
+        CACHE_TAG tag;      // Το tag της γραμμής της cache
+        UINT64 frequency;   // Μετρητής συχνότητας χρήσης (αριθμός hits)
+
+        // Constructor για εύκολη δημιουργία (αρχική συχνότητα 1)
+        CacheEntry(CACHE_TAG t, UINT64 f = 1) : tag(t), frequency(f) {}
+    };
+    std::vector<CacheEntry> _entries; // Αποθηκεύει τα entries (tag + frequency) του set
+    UINT32 _associativity;            // Η συσχετιστικότητα του set
+
+  public:
+    // Constructor
+    LFU(UINT32 associativity = 8) : _associativity(associativity)
+    {
+        // Προαιρετική δέσμευση χώρου στο vector για αποδοτικότητα
+        if (_associativity > 0) {
+             _entries.reserve(associativity);
+        }
+    }
+
+    // Ορισμός συσχετιστικότητας και καθαρισμός των entries
+    VOID SetAssociativity(UINT32 associativity)
+    {
+        _associativity = associativity;
+        _entries.clear();
+        if (_associativity > 0) {
+             _entries.reserve(associativity);
+        }
+    }
+
+    // Επιστροφή συσχετιστικότητας
+    UINT32 GetAssociativity() const { return _associativity; }
+
+    // Επιστροφή ονόματος πολιτικής
+    std::string Name() const { return "LFU"; }
+
+    // Εύρεση ενός tag στο set.
+    // Επιστρέφει true αν βρεθεί (hit), false αλλιώς (miss).
+    // **Σημαντικό**: Αυξάνει τον μετρητή frequency σε περίπτωση hit.
+    bool Find(CACHE_TAG tag)
+    {
+        // Διατρέχουμε τα entries με αναφορά (&) για να μπορούμε να αλλάξουμε τη συχνότητα
+        for (auto& entry : _entries) {
+            if (entry.tag == tag) {
+                entry.frequency++; // *** Αύξηση συχνότητας στο hit ***
+                return true; // Το tag βρέθηκε
+            }
+        }
+        return false; // Το tag δεν βρέθηκε
+    }
+
+    // Αντικατάσταση ενός block στο set ακολουθώντας την πολιτική LFU.
+    // Επιστρέφει το tag που αφαιρέθηκε, ή INVALID_TAG αν δεν έγινε αφαίρεση.
+    CACHE_TAG Replace(CACHE_TAG tag)
+    {
+        CACHE_TAG evicted_tag = INVALID_TAG;
+
+        if (_entries.size() < _associativity) {
+            // Το set δεν είναι γεμάτο. Απλά προσθέτουμε το νέο entry.
+            // Χρησιμοποιούμε emplace_back για να κατασκευάσουμε το CacheEntry απευθείας μέσα στο vector.
+            // Η αρχική συχνότητα είναι 1 (η τρέχουσα πρόσβαση).
+            _entries.emplace_back(tag, 1);
+        } else if (_associativity > 0) {
+            // Το set είναι γεμάτο. Πρέπει να βρούμε και να αντικαταστήσουμε το LFU entry.
+
+            // Βρίσκουμε τον δείκτη (index) του entry με τη μικρότερη συχνότητα.
+            // Tie-breaking: Αν υπάρχουν πολλά με την ίδια ελάχιστη συχνότητα,
+            // αυτή η υλοποίηση επιλέγει το *πρώτο* που θα συναντήσει στον vector.
+            UINT64 min_freq = std::numeric_limits<UINT64>::max(); // Αρχικοποίηση με τη μέγιστη δυνατή τιμή
+            UINT32 victim_index = 0; // Δείκτης του "θύματος" προς αντικατάσταση
+
+            if (!_entries.empty()) { // Ασφάλεια για την περίπτωση assoc=0 ή άδειου vector
+                 for (UINT32 i = 0; i < _entries.size(); ++i) {
+                     if (_entries[i].frequency < min_freq) {
+                         min_freq = _entries[i].frequency;
+                         victim_index = i;
+                     }
+                 }
+
+                 // Αποθηκεύουμε το tag του θύματος που θα αφαιρεθεί
+                 evicted_tag = _entries[victim_index].tag;
+
+                 // Αντικαθιστούμε το θύμα με το νέο tag και **μηδενίζουμε/αρχικοποιούμε** τη συχνότητά του.
+                 // Η νέα συχνότητα τίθεται σε 1, γιατί αυτή η εισαγωγή μετράει ως η πρώτη του χρήση.
+                 _entries[victim_index].tag = tag;
+                 _entries[victim_index].frequency = 1;
+            }
+        }
+        return evicted_tag;
+    }
+
+    // Διαγραφή ενός συγκεκριμένου tag αν υπάρχει στο set (π.χ., για την L2 inclusivity)
+    VOID DeleteIfPresent(CACHE_TAG tag)
+    {
+        for (auto it = _entries.begin(); it != _entries.end(); ++it) {
+            // it->tag για πρόσβαση στο μέλος tag του struct CacheEntry
+            if (it->tag == tag) { // Βρέθηκε το tag
+                _entries.erase(it); // Αφαιρούμε το στοιχείο CacheEntry
+                break;              // Υποθέτουμε μοναδικότητα των tags
+            }
+        }
+    }
+}; // End class LFU
+
+
 } // namespace CACHE_SET
 
 template <class SET>
