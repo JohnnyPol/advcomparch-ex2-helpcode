@@ -23,6 +23,116 @@ def geometric_mean_overflow_safe(series):
     except Exception:
         return np.nan
 
+def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
+    """
+    Loads results, calculates geometric means (IPC, L1_MPKI, L2_MPKI), 
+    and generates heatmaps vs. (Associativity, Block Size) for each L2 capacity.
+    """
+    # --- Φόρτωση Δεδομένων ---
+    try:
+        df = pd.read_csv(csv_filepath)
+        print(f"Successfully loaded {csv_filepath}")
+    except FileNotFoundError:
+        print(f"Error: CSV file '{csv_filepath}' not found.")
+        return
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+
+    # --- Υπολογισμός Γεωμετρικών Μέσων ---
+    print("\nCalculating geometric means across benchmarks for each configuration...")
+    try:
+        df_geom_means = df.groupby(['L2_Size_KB', 'L2_Assoc', 'L2_Block_B']).agg(
+            IPC=('IPC', geometric_mean_overflow_safe),
+            # Προσθήκη υπολογισμού για L1_MPKI και L2_MPKI
+            L1_MPKI=('L1_MPKI', geometric_mean_overflow_safe), 
+            L2_MPKI=('L2_MPKI', geometric_mean_overflow_safe)  
+        ).reset_index()
+        
+        print(f"Calculated geometric means for {len(df_geom_means)} unique configurations.")
+        
+        # Δεν αφαιρούμε NaN ακόμα, γιατί μπορεί να υπάρχει έγκυρο IPC αλλά όχι MPKI
+        # Θα το χειριστούμε κατά το pivoting/plotting.
+        
+    except Exception as e:
+        print(f"Error during geometric mean calculation: {e}")
+        return
+
+    # --- Δημιουργία Heatmaps ανά Χωρητικότητα L2 ---
+    l2_capacities = sorted(df_geom_means["L2_Size_KB"].unique())
+    print(f"\nGenerating heatmaps for L2 capacities: {l2_capacities}")
+
+    for capacity in l2_capacities:
+        print(f"  Processing L2 Capacity: {capacity} KB")
+        df_capacity = df_geom_means[df_geom_means["L2_Size_KB"] == capacity].copy()
+
+        if df_capacity.empty:
+            print(f"    Warning: No data found for {capacity} KB.")
+            continue
+
+        # --- Heatmap για IPC ---
+        try:
+            pivot_ipc = df_capacity.pivot_table(index='L2_Assoc', columns='L2_Block_B', values='IPC')
+            if not pivot_ipc.empty:
+                plt.figure(figsize=(10, 7))
+                sns.heatmap(pivot_ipc, annot=True, fmt=".4f", linewidths=.5, cmap="viridis") 
+                plt.title(f"Geometric Mean IPC for L2 Cache Size = {capacity} KB")
+                plt.xlabel("L2 Block Size (B)")
+                plt.ylabel("L2 Associativity (ways)")
+                plt.xticks(rotation=0); plt.yticks(rotation=0)
+                plt.tight_layout()
+                filename_ipc = f"heatmap_ipc_l2_{capacity}KB.png"
+                plt.savefig(filename_ipc, dpi=300)
+                print(f"    Saved IPC heatmap: {filename_ipc}")
+                plt.close()
+            else:
+                 print(f"    Warning: Pivot table for IPC is empty for {capacity} KB.")
+        except Exception as e:
+            print(f"    Error generating IPC heatmap for {capacity} KB: {e}")
+
+        # --- Heatmap για L1 MPKI ---
+        try:
+            pivot_l1mpki = df_capacity.pivot_table(index='L2_Assoc', columns='L2_Block_B', values='L1_MPKI')
+            if not pivot_l1mpki.empty:
+                plt.figure(figsize=(10, 7))
+                # Χρησιμοποιούμε αντίστροφη παλέτα π.χ., 'viridis_r' ή 'rocket_r', όπου ανοιχτά χρώματα = χαμηλό MPKI (καλύτερο)
+                sns.heatmap(pivot_l1mpki, annot=True, fmt=".2f", linewidths=.5, cmap="viridis_r") 
+                plt.title(f"Geometric Mean L1 MPKI for L2 Cache Size = {capacity} KB")
+                plt.xlabel("L2 Block Size (B)")
+                plt.ylabel("L2 Associativity (ways)")
+                plt.xticks(rotation=0); plt.yticks(rotation=0)
+                plt.tight_layout()
+                filename_l1mpki = f"heatmap_l1mpki_l2_{capacity}KB.png"
+                plt.savefig(filename_l1mpki, dpi=300)
+                print(f"    Saved L1 MPKI heatmap: {filename_l1mpki}")
+                plt.close()
+            else:
+                 print(f"    Warning: Pivot table for L1 MPKI is empty for {capacity} KB.")
+        except Exception as e:
+            print(f"    Error generating L1 MPKI heatmap for {capacity} KB: {e}")
+
+        # --- Heatmap για L2 MPKI ---
+        try:
+            pivot_l2mpki = df_capacity.pivot_table(index='L2_Assoc', columns='L2_Block_B', values='L2_MPKI')
+            if not pivot_l2mpki.empty:
+                plt.figure(figsize=(10, 7))
+                # Χρησιμοποιούμε αντίστροφη παλέτα π.χ., 'viridis_r' ή 'rocket_r'
+                sns.heatmap(pivot_l2mpki, annot=True, fmt=".2f", linewidths=.5, cmap="viridis_r") 
+                plt.title(f"Geometric Mean L2 MPKI for L2 Cache Size = {capacity} KB")
+                plt.xlabel("L2 Block Size (B)")
+                plt.ylabel("L2 Associativity (ways)")
+                plt.xticks(rotation=0); plt.yticks(rotation=0)
+                plt.tight_layout()
+                filename_l2mpki = f"heatmap_l2mpki_l2_{capacity}KB.png"
+                plt.savefig(filename_l2mpki, dpi=300)
+                print(f"    Saved L2 MPKI heatmap: {filename_l2mpki}")
+                plt.close()
+            else:
+                 print(f"    Warning: Pivot table for L2 MPKI is empty for {capacity} KB.")
+        except Exception as e:
+            print(f"    Error generating L2 MPKI heatmap for {capacity} KB: {e}")
+
+
 def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv"):
     """
     Loads results, calculates geometric mean IPC, and generates 
@@ -121,3 +231,4 @@ def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv"):
 if __name__ == "__main__":
     # Βεβαιωθείτε ότι το όνομα του αρχείου CSV είναι σωστό
     plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv")
+    plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv")
