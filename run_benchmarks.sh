@@ -10,8 +10,7 @@ outDir="/home/john/Adv_Comp_Arch/advcomparch-ex2-helpcode/output"
 inputBase="/home/john/Adv_Comp_Arch/advcomparch-ex2-helpcode/spec_benchmarks"
 
 ## Triples of <cache_size>_<associativity>_<block_size>
-CONFS="256_4_64"
-# 256_4_128 256_4_256 256_8_64 256_8_128 256_8_256 512_4_64 512_4_128 512_4_256 512_8_64 512_8_128 512_8_256 1024_8_64 1024_8_128 1024_8_256 1024_16_64 1024_16_128 1024_16_256 2048_16_64 2048_16_128 2048_16_256"
+CONFS="256_4_64 256_4_128 256_4_256 256_8_64 256_8_128 256_8_256 512_4_64 512_4_128 512_4_256 512_8_64 512_8_128 512_8_256 1024_8_64 1024_8_128 1024_8_256 1024_16_64 1024_16_128 1024_16_256 2048_16_64 2048_16_128 2048_16_256"
 
 L1size=32
 L1assoc=4
@@ -56,7 +55,7 @@ for folder in "$inputBase"/*; do
             	
 		echo "PIN_CMD: $pin_cmd"
 	
-        	nice -n -19 /bin/bash -c "$pin_cmd" & # Careful! The last "&" is so that each config runs in parallel. Decide whether you want this or not.
+        	/bin/bash -c "$pin_cmd" # Careful! The last "&" is so that each config runs in parallel. Decide whether you want this or not.
 	    	# You can also measure execution time if you run it like this: 
             	#{ time /bin/bash -c "$pin_cmd" ; } &> "$outBenchFolder/$outFile.time" &
 	    done
