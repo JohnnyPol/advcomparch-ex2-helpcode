@@ -23,7 +23,7 @@ def geometric_mean_overflow_safe(series):
     except Exception:
         return np.nan
 
-def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
+def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv", output_folder="parsed_output/4.2"):
     """
     Loads results, calculates geometric means (IPC, L1_MPKI, L2_MPKI), 
     and generates heatmaps vs. (Associativity, Block Size) for each L2 capacity.
@@ -81,7 +81,7 @@ def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
                 plt.ylabel("L2 Associativity (ways)")
                 plt.xticks(rotation=0); plt.yticks(rotation=0)
                 plt.tight_layout()
-                filename_ipc = f"heatmap_ipc_l2_{capacity}KB.png"
+                filename_ipc = f"{output_folder}/heatmap_ipc_l2_{capacity}KB.png"
                 plt.savefig(filename_ipc, dpi=300)
                 print(f"    Saved IPC heatmap: {filename_ipc}")
                 plt.close()
@@ -102,7 +102,7 @@ def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
                 plt.ylabel("L2 Associativity (ways)")
                 plt.xticks(rotation=0); plt.yticks(rotation=0)
                 plt.tight_layout()
-                filename_l1mpki = f"heatmap_l1mpki_l2_{capacity}KB.png"
+                filename_l1mpki = f"{output_folder}/heatmap_l1mpki_l2_{capacity}KB.png"
                 plt.savefig(filename_l1mpki, dpi=300)
                 print(f"    Saved L1 MPKI heatmap: {filename_l1mpki}")
                 plt.close()
@@ -123,7 +123,7 @@ def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
                 plt.ylabel("L2 Associativity (ways)")
                 plt.xticks(rotation=0); plt.yticks(rotation=0)
                 plt.tight_layout()
-                filename_l2mpki = f"heatmap_l2mpki_l2_{capacity}KB.png"
+                filename_l2mpki = f"{output_folder}/heatmap_l2mpki_l2_{capacity}KB.png"
                 plt.savefig(filename_l2mpki, dpi=300)
                 print(f"    Saved L2 MPKI heatmap: {filename_l2mpki}")
                 plt.close()
@@ -133,7 +133,7 @@ def plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv"):
             print(f"    Error generating L2 MPKI heatmap for {capacity} KB: {e}")
 
 
-def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv"):
+def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv", output_folder="parsed_output/4.2"):
     """
     Loads results, calculates geometric mean IPC, and generates 
     heatmaps of Geo Mean IPC vs. (Associativity, Block Size) 
@@ -215,7 +215,7 @@ def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv"):
             plt.tight_layout() # Αυτόματη προσαρμογή για να χωράνε όλα
 
             # Αποθήκευση του heatmap σε αρχείο PNG
-            filename = f"heatmap_ipc_l2_{capacity}KB.png"
+            filename = f"{output_folder}/heatmap_ipc_l2_{capacity}KB.png"
             plt.savefig(filename, dpi=300) # Αποθήκευση με 300 DPI
             print(f"    Saved heatmap: {filename}")
             plt.close() # Κλείσιμο της φιγούρας για εξοικονόμηση μνήμης
@@ -230,5 +230,7 @@ def plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv"):
 
 if __name__ == "__main__":
     # Βεβαιωθείτε ότι το όνομα του αρχείου CSV είναι σωστό
-    plot_ipc_heatmaps(csv_filepath="cache_simulation_results.csv")
-    plot_ipc_mpki_heatmaps(csv_filepath="cache_simulation_results.csv")
+    csv_filepath = "parsed_output/4.3/Random/cache_simulation_results.csv"
+    output_folder = "parsed_output/4.3/Random"
+    plot_ipc_heatmaps(csv_filepath=csv_filepath, output_folder=output_folder)
+    plot_ipc_mpki_heatmaps(csv_filepath=csv_filepath, output_folder=output_folder)

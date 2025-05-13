@@ -59,13 +59,14 @@ def extract_params_from_filename(filename):
     # Regex to capture benchmark name and L2 parameters
     # It assumes benchmark name can contain dots, followed by ".cslab_cache_stats_L2_LRU_"
     # then L2size (4 digits), L2assoc (2 digits), L2blocksize (3 digits)
-    match = re.search(r"^(.*?)\.cslab_cache_stats_L2_LRU_(\d{4})_(\d{2})_(\d{3})\.out$", filename)
+    match = re.search(r"^(.*?)\.cslab_cache_stats_L2_(.*?)_(\d{4})_(\d{2})_(\d{3})\.out$", filename)
     if match:
         benchmark_name = match.group(1)
-        l2_size_kb = int(match.group(2))
-        l2_assoc = int(match.group(3))
-        l2_block_b = int(match.group(4))
-        return benchmark_name, l2_size_kb, l2_assoc, l2_block_b
+        policy = match.group(2)  # This is the policy, e.g., LRU
+        l2_size_kb = int(match.group(3))
+        l2_assoc = int(match.group(4))
+        l2_block_b = int(match.group(5))
+        return benchmark_name, policy,l2_size_kb, l2_assoc, l2_block_b
     else:
         print(f"Warning: Could not extract parameters from filename: {filename}")
         return None, None, None, None
@@ -88,7 +89,7 @@ def main():
                     # Extract parameters from filename
                     # The benchmark name from the folder is usually more reliable if filenames are complex
                     # but the filename itself also contains it. Let's use the one from the filename pattern.
-                    bench_name_from_file, l2_size, l2_assoc, l2_block = extract_params_from_filename(filename)
+                    bench_name_from_file, policy, l2_size, l2_assoc, l2_block = extract_params_from_filename(filename)
                     
                     if bench_name_from_file is None: # Skip if filename parsing failed
                         continue
@@ -108,7 +109,8 @@ def main():
                             "L2_MPKI": parsed_data["l2_mpki"],
                             "Total_Instructions": parsed_data["total_instructions"],
                             "L1_Total_Misses": parsed_data["l1_total_misses"],
-                            "L2_Total_Misses": parsed_data["l2_total_misses"]
+                            "L2_Total_Misses": parsed_data["l2_total_misses"],
+                            "Policy": policy,
                             # You can add more raw data if needed
                         }
                         all_results.append(result_entry)
