@@ -116,7 +116,7 @@ class LRU
     }
 };
 
-*/
+
 // ************************
 // Random Replacement Policy (New implementation)
 // ************************
@@ -201,7 +201,8 @@ class Random
     }
 }; // End class Random
 
-/*
+*/
+
 // ************************
 // LFU (Least Frequently Used) Replacement Policy
 // ************************
@@ -313,7 +314,7 @@ class LFU
     }
 }; // End class LFU
 
-
+/*
 // ************************
 // LIP (LRU Insertion Policy) Replacement Policy
 // ************************

@@ -46,10 +46,10 @@ KNOB<UINT32> KnobL2Associativity(KNOB_MODE_WRITEONCE, "pintool",
 // typedef TWO_LEVEL_CACHE<CACHE_SET::LRU> CACHE_T; // This is where the replacement policy is chosen
 
 // Random Policy
-typedef TWO_LEVEL_CACHE<CACHE_SET::Random> CACHE_T;
+//typedef TWO_LEVEL_CACHE<CACHE_SET::Random> CACHE_T;
 
 // LFU Policy
-// typedef TWO_LEVEL_CACHE<CACHE_SET::LFU> CACHE_T;
+typedef TWO_LEVEL_CACHE<CACHE_SET::LFU> CACHE_T;
 
 // LIP Policy
 // typedef TWO_LEVEL_CACHE<CACHE_SET::LIP> CACHE_T;
