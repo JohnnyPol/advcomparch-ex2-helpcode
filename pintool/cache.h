@@ -54,7 +54,7 @@ namespace CACHE_SET
 // ************************
 // Change this class and implement policy to evict random block!
 // ************************
-
+/*
 class LRU 
 {
   protected:
@@ -116,7 +116,7 @@ class LRU
     }
 };
 
-
+*/
 // ************************
 // Random Replacement Policy (New implementation)
 // ************************
@@ -201,7 +201,7 @@ class Random
     }
 }; // End class Random
 
-
+/*
 // ************************
 // LFU (Least Frequently Used) Replacement Policy
 // ************************
@@ -547,7 +547,7 @@ class SRRIP
         }
     }
 }; // End class SRRIP
-
+*/
 
 } // namespace CACHE_SET
 
