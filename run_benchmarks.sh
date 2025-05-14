@@ -45,7 +45,7 @@ for folder in "$inputBase"/*; do
 	    	L2bsize=$(echo $conf | cut -d'_' -f3)
 
             	# Create and set output file path
-		outFile=$(printf "%s.cslab_cache_stats_L2_LFU_%04d_%02d_%03d.out" $BENCH ${L2size} ${L2assoc} ${L2bsize})
+		outFile=$(printf "%s.cslab_cache_stats_L2_LIP_%04d_%02d_%03d.out" $BENCH ${L2size} ${L2assoc} ${L2bsize})
 		outBenchFolder="$outDir/$BENCH"
 		mkdir -p "$outBenchFolder"  # Create internal folders if they don't already exist
 		pinOutFile="$outBenchFolder/$outFile"

@@ -201,7 +201,7 @@ class Random
     }
 }; // End class Random
 
-*/
+
 
 // ************************
 // LFU (Least Frequently Used) Replacement Policy
@@ -314,7 +314,7 @@ class LFU
     }
 }; // End class LFU
 
-/*
+*/
 // ************************
 // LIP (LRU Insertion Policy) Replacement Policy
 // ************************
@@ -402,6 +402,7 @@ class LIP
     }
 }; // End class LIP
 
+/*
 // ************************
 // SRRIP (Static Re-reference Interval Prediction) Replacement Policy
 // ************************
