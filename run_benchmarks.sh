@@ -10,7 +10,7 @@ outDir="/home/john/Adv_Comp_Arch/advcomparch-ex2-helpcode/output"
 inputBase="/home/john/Adv_Comp_Arch/advcomparch-ex2-helpcode/spec_benchmarks"
 
 ## Triples of <cache_size>_<associativity>_<block_size>
-CONFS="256_8_256 512_8_256 1024_16_256  2048_16_256"
+CONFS="2048_16_256" # 256_8_256 512_8_256 1024_16_256
 
 L1size=32
 L1assoc=4
@@ -45,7 +45,7 @@ for folder in "$inputBase"/*; do
 	    	L2bsize=$(echo $conf | cut -d'_' -f3)
 
             	# Create and set output file path
-		outFile=$(printf "%s.cslab_cache_stats_L2_LIP_%04d_%02d_%03d.out" $BENCH ${L2size} ${L2assoc} ${L2bsize})
+		outFile=$(printf "%s.cslab_cache_stats_L2_SRRIP_%04d_%02d_%03d.out" $BENCH ${L2size} ${L2assoc} ${L2bsize})
 		outBenchFolder="$outDir/$BENCH"
 		mkdir -p "$outBenchFolder"  # Create internal folders if they don't already exist
 		pinOutFile="$outBenchFolder/$outFile"
