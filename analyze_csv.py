@@ -1,3 +1,11 @@
+"""
+Script for Exercise 4.2:
+1. Load the CSV file containing cache simulation results.
+2. Calculate the geometric mean of IPC and MPKI values across benchmarks for each configuration.
+3. Generate heatmaps of the geometric mean IPC vs. (Associativity, Block Size) for each L2 capacity.
+4. Generate heatmaps of the geometric mean IPC and MPKI vs. (Associativity, Block Size) for each L2 capacity.
+5. Save the heatmaps in a specified output folder.
+"""
 import matplotlib
 matplotlib.use('Agg') # Χρήση non-interactive backend
 
